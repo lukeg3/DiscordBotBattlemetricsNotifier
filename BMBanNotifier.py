@@ -198,6 +198,7 @@ class squadBanNotifier(discord.Client):
         embedVar.add_field(name="!help", value="Displays this help message", inline=False)
         embedVar.add_field(name="!manualbanlistpoll", value="Manually refreshes ban list and checks for changes", inline=False)
         embedVar.add_field(name="!lastban", value="DMs you the last ban made and its information", inline=False)
+        embedVar.add_field(name="!user 'steamid'", value="Searches for a players ban history by SteamID. Replace 'steamid' with the players SteamID", inline=False)
         return embedVar
 
     def create_embed_of_ban(self, ban):
