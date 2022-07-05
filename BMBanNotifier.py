@@ -16,6 +16,7 @@
 # import neccesary modules
 import configparser
 from lib2to3.pgen2.token import NOTEQUAL
+from pickle import NONE
 import discord
 import json
 import requests
@@ -40,7 +41,8 @@ BM_BANLIST_ID = config["Battlemetrics"]["banListId"] #battlemetrics ban list id
 BM_POLLING_INTERVAL = int(config["Battlemetrics"]["pollingInterval"]) #how often the api is polled (default 10 minutes)
 
 HEADERS = {"Authorization" : "Bearer " + BM_TOKEN}
-URL = "https://api.battlemetrics.com/bans?filter[banList]=" + BM_BANLIST_ID + "&include=user,server"
+BANLISTURL = "https://api.battlemetrics.com/bans?filter[banList]=" + BM_BANLIST_ID + "&include=user,server"
+
 
 """Define class used for storing ban information"""
 class BanInfo(Enum):
@@ -52,6 +54,39 @@ class BanInfo(Enum):
     TIME_UNBANNED   = 5
     SERVER          = 6
     ADMIN_NAME      = 7
+
+class PlayerInfo:
+    PLAYER_NAME     = 0
+    STEAM_ID        = 1
+    NUM_ACTIVE      = 2
+    NUM_EXPIRED     = 3
+    MOST_RECENT     = 4
+    MOST_RECENT_NOTE = 5
+    BMLINK          = 6
+    def __init__(self, name, sid, na, ne, mr, mrn, bm):
+        self.PLAYER_NAME = name
+        self.STEAM_ID = sid
+        self.NUM_ACTIVE = na
+        self.NUM_EXPIRED = ne
+        self.MOST_RECENT = mr
+        self.MOST_RECENT_NOTE = mrn
+        self.BMLINK = bm
+    def name(self):
+        return self.PLAYER_NAME
+    def steamID(self):
+        return self.STEAM_ID
+    def numActive(self):
+        return self.NUM_ACTIVE
+    def numExpired(self):
+        return self.NUM_EXPIRED
+    def mostRecent(self):
+        return self.MOST_RECENT
+    def mostRecentNote(self):
+        return self.MOST_RECENT_NOTE    
+    def bmLink(self):
+        return self.BMLINK
+
+
 
 class squadBanNotifier(discord.Client):
     """ Discord Ban Bot """
@@ -84,14 +119,39 @@ class squadBanNotifier(discord.Client):
                 print("Running manual poll")
                 await message.author.send("Manually pulled ban list")
                 self.update()
+
             elif command == "LASTBAN": #command DMs the user that executes the command the last ban
                 print("Pulling last ban")
-                banList = get_banlist(URL, HEADERS)
+                banList = get_banlist(BANLISTURL, HEADERS)
                 if banList != []:
                     await message.author.send(embed=self.create_embed_of_ban(banList[0]))
+
             elif command == "HELP": #command DMs the bot commands to the user that executes the command
                 print("Messaging help information")
                 await message.author.send(embed=self.create_help_embed())
+
+            elif "USER" in command: #get users ban information from battlemetrics with their steamid
+                try:
+                    steamId = command.strip(" USER") #get just the steamid from the command
+                    if len(steamId) != 17:
+                        print("Invalid SteamID")
+                        await message.author.send("Invalid SteamID")
+                    else: 
+                        print("Pulling playerid")
+                        playerId = get_playerID(steamId, HEADERS)
+                        if playerId != None:
+                            if len(playerId) == 9:
+                                playerInfoURL = "https://api.battlemetrics.com/bans?filter[player]=" + playerId + "&include=user,server"
+                                print("Making user embed to channel")
+                                await message.channel.send(embed=self.create_player_embed(self, playerId, playerInfoURL, HEADERS))
+                            else:
+                                print("PlayerID not of correct length")
+                                await message.author.send("No User Profile Found, check battlemetrics")
+                        else:
+                            await message.author.send("No User Profile Found, check battlemetrics")
+                except Exception as e:
+                    print("User command exception",e)
+                    return[] 
 
     def polling_thread(self, event):
         """ Polling thread that runs every UPDATE_TIMER second """
@@ -101,8 +161,8 @@ class squadBanNotifier(discord.Client):
 
     def update(self):
         """ Poll from Battlemetrics API and if there is new data, display it in the discord text channel. """
-        print("Polling from Battlemetrics API...\nURL: " + str(URL))
-        banList = get_banlist(URL, HEADERS)
+        print("Polling from Battlemetrics API...\nURL: " + str(BANLISTURL))
+        banList = get_banlist(BANLISTURL, HEADERS)
         if banList: # If poll was successful
             print("Poll was successful.")
             diff = self.get_banlist_difference(banList)
@@ -146,7 +206,10 @@ class squadBanNotifier(discord.Client):
         embedVar.add_field(name="PLAYER NAME", value=ban[BanInfo.PLAYER_NAME.value], inline=False)
         embedVar.add_field(name="STEAMID", value=ban[BanInfo.STEAM_ID.value], inline=False)
         embedVar.add_field(name="REASON", value=ban[BanInfo.REASON.value], inline=False)
-        embedVar.add_field(name="NOTE", value=ban[BanInfo.NOTE.value], inline=False)
+        if BanInfo.NOTE.value != None:
+            embedVar.add_field(name="NOTE", value=ban[BanInfo.NOTE.value], inline=False)
+        else:
+            embedVar.add_field(name="NOTE", value="No ban notes", inline=False)
         embedVar.add_field(name="DATE", value=ban[BanInfo.TIME_BANNED.value], inline=False)
         embedVar.add_field(name="EXPIRES", value=ban[BanInfo.TIME_UNBANNED.value], inline=False)
         embedVar.add_field(name="SERVER", value=ban[BanInfo.SERVER.value], inline=False)
@@ -156,6 +219,62 @@ class squadBanNotifier(discord.Client):
     def send_embed_to_text_channel(self, embedVar):
         """ Send embed to text channel. """
         self.loop.create_task(self.get_channel(DC_TEXT_CHANNEL_ID).send(embed=embedVar))
+    
+    def create_player_embed(trash,self, id, url, headers):
+        """Creates embed of a players ban history and information"""
+        card = self.make_playercard(self, id, url, headers)
+        embedVar = discord.Embed(title="Player Information", color=0x00ff00)
+        embedVar.add_field(name="Player Name", value=PlayerInfo.name(card), inline=False)
+        embedVar.add_field(name="SteamID", value=PlayerInfo.steamID(card), inline=False)
+        embedVar.add_field(name="Number of active bans:", value=PlayerInfo.numActive(card), inline=False)
+        embedVar.add_field(name="Number of expired bans:", value=PlayerInfo.numExpired(card), inline=False)
+        embedVar.add_field(name="Most recent ban reason:", value=PlayerInfo.mostRecent(card), inline=False)
+        embedVar.add_field(name="Most recent ban note:", value=PlayerInfo.mostRecentNote(card), inline=False)
+        embedVar.add_field(name="Battlemetrics Link:", value=PlayerInfo.bmLink(card), inline=False)
+        return embedVar
+
+    def make_playercard(trash, self, id, url, headers):
+        """Polls battlemetrics api to get the player information 
+        to make the player embed"""
+        try:
+            response = requests.get(url, headers=headers) 
+        except Exception as e:
+            print("make_playercard json exception",e)
+            return []
+        card = response.json()
+        playerNames, steamIds, numact, numexp, recent, note, bmurl = ([] for i in range(7))
+        try:
+            playerNames.append(card["data"][0]["meta"]["player"])
+        except Exception as e:
+            print("Unknown Player Name",e)
+            playerNames.append("Unknown Player")
+        for i in range(10):
+            if card["data"][0]["attributes"]["identifiers"][i]["type"]=="steamID":
+                steamIds.append(card["data"][0]["attributes"]["identifiers"][i]["identifier"])
+                break
+        numact.append(card["meta"]["active"])
+        numexp.append(card["meta"]["expired"])
+        try:
+            if card["data"][0]["type"] == "ban":
+                recent.append(card["data"][0]["attributes"]["reason"])
+                if card["data"][0]["attributes"]["note"] == "":
+                    note.append("No Ban Note")
+                else:
+                    note.append(card["data"][0]["attributes"]["note"])
+            else:
+                recent.append("No recent bans")
+                note.append("No Ban Note")
+        except Exception as e:
+            print("make_playercard recent ban exception",e)
+            if recent[0] == None:
+                recent.append("No recent bans")
+            if note[0] == None:
+                note.append("No ban note attached")
+        bmurl.append("https://www.battlemetrics.com/rcon/players/"+id)
+        returnList = PlayerInfo(playerNames[0],steamIds[0],numact[0],numexp[0], recent[0], note[0], bmurl[0])
+        return returnList
+    
+
 
 
 def get_banlist(url, headers):
@@ -165,13 +284,10 @@ def get_banlist(url, headers):
     try:
         response = requests.get(url, headers=headers) 
     except Exception as e:
-        print(e)
+        print("get_banlist exception",e)
         return []
-
     banList = response.json()
-   
     tempServer, tempBanner = dict(), dict()
-    
     for include in banList["included"]:
         if include["type"] == "server": #list of server names
             tempServer[include["id"]] = include["attributes"]["name"]
@@ -184,7 +300,10 @@ def get_banlist(url, headers):
         except Exception as e:
             print("Unknown Player Name",e)
             playerNames.append("Unknown Player")
-        steamIds.append(ban["attributes"]["identifiers"][0]["identifier"])
+        for i in range(10):
+            if ban["attributes"]["identifiers"][i]["type"]=="steamID":
+                steamIds.append(ban["attributes"]["identifiers"][i]["identifier"])
+                break
         banReasons.append(ban["attributes"]["reason"].replace(" ({{duration}} ban) - Expires in {{timeLeft}}.", ""))
         note.append(ban["attributes"]["note"])
         timeBanned.append(ban["attributes"]["timestamp"].replace("T", " ")[:-5])
@@ -198,6 +317,26 @@ def get_banlist(url, headers):
     return returnList
 
 
+def get_playerID(steamID, headers):
+    """Returns the battlemetrics player id number
+    from an api request searching with a players steamID"""
+    url = "https://api.battlemetrics.com/players?filter[search]=" + steamID
+    print("Pulling player info from BM") #debug message
+    try:
+        response = requests.get(url, headers=headers) 
+    except Exception as e:
+        print("get_playerID exception", e)
+        return []
+    playerInfo = response.json()
+    playerID = None
+    for player in playerInfo["data"]:
+        playerID = player["id"]
+    if playerID==None:
+        playerID = "Unknown Player"          
+    print("Player ID:", playerID)
+    return playerID
+    
+    
 def config_check():
     """ Verify that config is set. """
     cfg = config["General"]["prefix"]
