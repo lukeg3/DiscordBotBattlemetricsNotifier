@@ -6,7 +6,7 @@ This is a Discord bot to read squad bans (or probably
 bans of any game supported by Battlemetrics RCON)
 adapted from the Discord Bot Battlemetrics Ban Notifier created by Alexemanuelol@GitHub
 
-This bot uses the Battlemetrics API to poll information about recently banned players at a regular intervaland updates
+This bot uses the Battlemetrics API to poll information about recently banned players at a regular interval and updates
 a discord server's text channel automatically whenever a new ban is detected.
 
 ## Environment Setup
@@ -37,8 +37,7 @@ Get a battlemetrics token by going to the [Battlemetrics Developers Area](https:
 and put it in the battlemetricsToken field in the config.ini file, DO NOT SHARE THIS TOKEN WITH ANYONE.
 
 Get the battlemetrics ban list id from [Battlemetrics Ban Lists](https://www.battlemetrics.com/rcon/ban-lists), click "View 
-Bans" on the ban list you want to use. Then your URL will be https://www.battlemetrics.com/rcon/bans/?
-filter%5BbanList%5D="BANLIST ID IS HERE" copy the part that is where "BANLIST ID IS HERE" is and put it in the banListId field 
+Bans" on the ban list you want to use. Then your URL will be https://www.battlemetrics.com/rcon/bans/?filter%5BbanList%5D="BANLIST ID IS HERE" copy the part that is where "BANLIST ID IS HERE" is and put it in the banListId field 
 in the config.ini file.
 
 Finally set the polling interval (in seconds) to determine how often the ban list is updated. The recommended time is 10 minutes 
