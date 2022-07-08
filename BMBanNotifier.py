@@ -55,15 +55,17 @@ class BanInfo(Enum):
     SERVER          = 6
     ADMIN_NAME      = 7
 
+"""Define class used for storing player information"""
 class PlayerInfo:
     PLAYER_NAME     = 0
     STEAM_ID        = 1
     NUM_ACTIVE      = 2
     NUM_EXPIRED     = 3
     MOST_RECENT     = 4
-    MOST_RECENT_NOTE = 5
+    MOST_RECENT_NOTE= 5
     BMLINK          = 6
-    def __init__(self, name, sid, na, ne, mr, mrn, bm):
+    COMMBANLINK     = 7
+    def __init__(self, name, sid, na, ne, mr, mrn, bm, cbl):
         self.PLAYER_NAME = name
         self.STEAM_ID = sid
         self.NUM_ACTIVE = na
@@ -71,6 +73,7 @@ class PlayerInfo:
         self.MOST_RECENT = mr
         self.MOST_RECENT_NOTE = mrn
         self.BMLINK = bm
+        self.COMMBANLINK = cbl
     def name(self):
         return self.PLAYER_NAME
     def steamID(self):
@@ -85,6 +88,8 @@ class PlayerInfo:
         return self.MOST_RECENT_NOTE    
     def bmLink(self):
         return self.BMLINK
+    def communityBanLink(self):
+        return self.COMMBANLINK
 
 
 
@@ -130,7 +135,7 @@ class squadBanNotifier(discord.Client):
                 print("Messaging help information")
                 await message.author.send(embed=self.create_help_embed())
 
-            elif "USER" in command: #get users ban information from battlemetrics with their steamid
+            elif "USER" in command: #command get users ban information from battlemetrics with their steamid and posts in channel
                 try:
                     steamId = command.strip(" USER") #get just the steamid from the command
                     if len(steamId) != 17:
@@ -232,6 +237,7 @@ class squadBanNotifier(discord.Client):
         embedVar.add_field(name="Most recent ban reason:", value=PlayerInfo.mostRecent(card), inline=False)
         embedVar.add_field(name="Most recent ban note:", value=PlayerInfo.mostRecentNote(card), inline=False)
         embedVar.add_field(name="Battlemetrics Link:", value=PlayerInfo.bmLink(card), inline=False)
+        embedVar.add_field(name="Community Ban List Link:", value=PlayerInfo.communityBanLink(card), inline=False)
         return embedVar
 
     def make_playercard(trash, self, id, url, headers):
@@ -243,7 +249,7 @@ class squadBanNotifier(discord.Client):
             print("make_playercard json exception",e)
             return []
         card = response.json()
-        playerNames, steamIds, numact, numexp, recent, note, bmurl = ([] for i in range(7))
+        playerNames, steamIds, numact, numexp, recent, note, bmurl, cblink = ([] for i in range(8))
         try:
             playerNames.append(card["data"][0]["meta"]["player"])
         except Exception as e:
@@ -272,7 +278,8 @@ class squadBanNotifier(discord.Client):
             if note[0] == None:
                 note.append("No ban note attached")
         bmurl.append("https://www.battlemetrics.com/rcon/players/"+id)
-        returnList = PlayerInfo(playerNames[0],steamIds[0],numact[0],numexp[0], recent[0], note[0], bmurl[0])
+        cblink.append("https://communitybanlist.com/search/"+steamIds[0])
+        returnList = PlayerInfo(playerNames[0], steamIds[0], numact[0], numexp[0], recent[0], note[0], bmurl[0],  cblink[0])
         return returnList
     
 
@@ -333,8 +340,7 @@ def get_playerID(steamID, headers):
     for player in playerInfo["data"]:
         playerID = player["id"]
     if playerID==None:
-        playerID = "Unknown Player"          
-    print("Player ID:", playerID)
+        playerID = "Unknown Player"
     return playerID
     
     
