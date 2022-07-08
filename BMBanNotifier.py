@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-    SquadBanNotifier
+    battlemetricsDiscordBot
     modified by lukeg3
 
     This is a Discord bot to read squad bans (or bans of any game supported by Battlemetrics RCON)
@@ -15,6 +15,7 @@
 """
 # import neccesary modules
 import configparser
+from http import client
 from lib2to3.pgen2.token import NOTEQUAL
 from pickle import NONE
 import discord
@@ -35,6 +36,7 @@ PREFIX = config["General"]["prefix"] #discord command prefix
 DC_ADMINS = config["Discord"]["admins"].replace(" ", "").split(",") #discord admins list
 DC_TOKEN = config["Discord"]["discordToken"] #discord Oauth token 
 DC_TEXT_CHANNEL_ID = int(config["Discord"]["discordTextChannelId"]) #discord channel identifier
+DC_TEXT_CHANNEL_NAME = config["Discord"]["discordTextChannelName"]
 
 BM_TOKEN = config["Battlemetrics"]["battlemetricsToken"] #battlemetric api token
 BM_BANLIST_ID = config["Battlemetrics"]["banListId"] #battlemetrics ban list id
@@ -93,7 +95,7 @@ class PlayerInfo:
 
 
 
-class squadBanNotifier(discord.Client):
+class battlemetricsDiscordBot(discord.Client):
     """ Discord Ban Bot """
     def __init__(self, **options):
         """ Initialize """
@@ -103,6 +105,7 @@ class squadBanNotifier(discord.Client):
         self.event = threading.Event()
         self.thread = threading.Thread(target=self.polling_thread, args=(self.event,))
         self.thread.start()
+    client = discord.Client()
 
     async def on_ready(self):
         """ on_ready. """
@@ -118,7 +121,26 @@ class squadBanNotifier(discord.Client):
         print(str(message.author) + ": " + str(message.content))
 
         """Define Discord channel commands"""
-        if str(message.author) in DC_ADMINS and message.content.startswith(PREFIX):
+
+        """
+        if you want anyone who has access to a Discord channel to be able to execute all the commands change the below
+        if statement to:
+
+            if message.content.startswith(PREFIX) and str(message.channel) in DC_TEXT_CHANNEL_NAME:
+        
+        if you want only admins to be able to use it in any channel
+
+            if str(message.author) in DC_ADMINS and message.content.startswith(PREFIX):
+
+        if you want only admins to be able to use it in a specific channel
+
+            if str(message.author) in DC_ADMINS and message.content.startswith(PREFIX) and str(message.channel) in DC_TEXT_CHANNEL_NAME: 
+        
+        if you want anyone to use the commands anywhere
+             if message.content.startswith(PREFIX):
+        
+        """
+        if str(message.author) in DC_ADMINS and message.content.startswith(PREFIX) and str(message.channel) in DC_TEXT_CHANNEL_NAME:
             command = messageUpper[len(PREFIX):]
             if command == "MANUALBANLISTPOLL": #command refreshs from api manually
                 print("Running manual poll")
@@ -192,9 +214,13 @@ class squadBanNotifier(discord.Client):
     def update_text_channel(temporary, self, newBans):
         """ Update text channel with the new bans. """
         print("Transmit new ban information to the discord text channel...")
-        for ban in newBans:
-            embedVar = self.create_embed_of_ban(ban)
-            self.send_embed_to_text_channel(embedVar)
+        try:
+            for ban in newBans:
+                embedVar = self.create_embed_of_ban(ban)
+                self.send_embed_to_text_channel(embedVar)
+        except Exception as e:
+            print("update_text_channel exception:",e)
+            return
         print("Successfully sent to text channel")
 
     def create_help_embed(self):
@@ -281,9 +307,6 @@ class squadBanNotifier(discord.Client):
         cblink.append("https://communitybanlist.com/search/"+steamIds[0])
         returnList = PlayerInfo(playerNames[0], steamIds[0], numact[0], numexp[0], recent[0], note[0], bmurl[0],  cblink[0])
         return returnList
-    
-
-
 
 def get_banlist(url, headers):
     """ Returns a list of the most recent banned players, default 10 players.
@@ -329,7 +352,6 @@ def get_playerID(steamID, headers):
     """Returns the battlemetrics player id number
     from an api request searching with a players steamID"""
     url = "https://api.battlemetrics.com/players?filter[search]=" + steamID
-    print("Pulling player info from BM") #debug message
     try:
         response = requests.get(url, headers=headers) 
     except Exception as e:
@@ -376,5 +398,5 @@ def config_check():
 
 if __name__ == "__main__":
     config_check()
-    bot = squadBanNotifier()
+    bot = battlemetricsDiscordBot()
     bot.run(DC_TOKEN)
