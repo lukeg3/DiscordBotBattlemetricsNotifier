@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
 """
-    battlemetricsDiscordBot
-    modified by lukeg3
+    DiscordBotBattlemetricsNotifier
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    created by lukeg3 forked from alexemanuelol/Discord-BOT-Battlemetrics-Ban-Notifier
 
-    This is a Discord bot to read squad bans (or bans of any game supported by Battlemetrics RCON)
-    adapted from the Discord Bot Battlemetrics Ban Notifier created by Alexemanuelol@GitHub
+    This program uses the discord.py python wrapper for the Discord API to create a Discord bot
+    that reads and responds to user commands in a specific channel or with specific user definitions.
+    
+    The program queries the Battlemetrics API in response to user commands in discord as well as at
+    a regular interval defined by BM_POLLING_INTERVAL.
 
-    This bot uses the Battlemetrics API to poll information about recently banned players at a regular intervaland updates
-    a discord server's text channel automatically whenever a new ban is detected.
+    After each interval of the BM_POLLING_INTERVAL the Battlemetrics RCON API is queried and any new
+    bans made since the last query are made into embeds and posted in the designated discord channel.
 
-    See the README.md for how to configure the config.ini file prior to running this script.
+    See the README.md for how to configure the config.ini file prior to running this program.
 
 """
 # import neccesary modules
@@ -23,7 +27,6 @@ import json
 import requests
 import os
 import threading
-
 from enum import Enum
 
 # Read configuration file
