@@ -140,7 +140,7 @@ class battlemetricsDiscordBot(discord.Client):
              if message.content.startswith(PREFIX):
         
         """
-        if str(message.author) in DC_ADMINS and message.content.startswith(PREFIX) and str(message.channel) in DC_TEXT_CHANNEL_NAME:
+        if message.content.startswith(PREFIX) and str(message.channel) in DC_TEXT_CHANNEL_NAME:
             command = messageUpper[len(PREFIX):]
             if command == "MANUALBANLISTPOLL": #command refreshs from api manually
                 print("Running manual poll")
