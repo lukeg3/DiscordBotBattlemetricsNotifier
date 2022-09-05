@@ -45,15 +45,7 @@ which is 600 seconds.
 
 ## Games this works with
 
-At this time, this bot has only been tested with Squad. It should work for other games. 
-
-## Contact
-
-Message me on dis cord at LukeG01 number:7531 with questions or concerns.
-
-## Future Plans
-
-If this bot is adopted, it will be modified to be able to pull multiple ban lists and update the same or seperate channels for the embeds.
+At this time, this bot has only been tested with Squad. It should work for other games with slight modifications
 
 ## Sources
 
